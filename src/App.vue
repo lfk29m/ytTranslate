@@ -1,11 +1,12 @@
 <script setup>
-import { ref, shallowRef } from "vue";
+import { ref, shallowRef, onMounted } from "vue";
 import UrlInput from "./components/UrlInput.vue";
 import VideoPlayer from "./components/VideoPlayer.vue";
 import SrtImporter from "./components/SrtImporter.vue";
 import SubtitleDisplay from "./components/SubtitleDisplay.vue";
 import { useSrtParser } from "./composables/useSrtParser.js";
 import { useSubtitleSync } from "./composables/useSubtitleSync.js";
+import { useAppCache } from "./composables/useAppCache.js";
 
 // ── State ──────────────────────────────────────────────────────────────────
 const videoId = ref("");
@@ -14,15 +15,26 @@ const playerApiRef = shallowRef(null); // { getCurrentTime, loadVideo, onPlayerS
 // Lives here so the template can directly track this plain ref.
 const currentCue = ref(null);
 
-const { cues, srtFilename, parseSrtFile } = useSrtParser();
+const { cues, srtFilename, parseSrtFile, parseSrtRaw } = useSrtParser();
+const { saveVideoId, loadVideoId, saveSrt, loadSrt } = useAppCache();
 
 let syncDispose = null;
+
+// ── Restore cache on first load ────────────────────────────────────────────
+onMounted(() => {
+  const cachedId = loadVideoId();
+  if (cachedId) videoId.value = cachedId;
+
+  const cachedSrt = loadSrt();
+  if (cachedSrt) parseSrtRaw(cachedSrt.rawText, cachedSrt.filename);
+});
 
 // ── Handlers ───────────────────────────────────────────────────────────────
 
 /** Called by UrlInput when a valid video ID is parsed */
 function onLoadVideo(id) {
   videoId.value = id;
+  saveVideoId(id);
 }
 
 /**
@@ -44,7 +56,10 @@ function onPlayerApi(api) {
 /** Called by SrtImporter when a file is selected */
 async function onImportSrt(file) {
   try {
-    await parseSrtFile(file);
+    // Read raw text first so we can both parse and cache it
+    const rawText = await file.text();
+    parseSrtRaw(rawText, file.name);
+    saveSrt(file.name, rawText);
   } catch (err) {
     console.error("[App] SRT parse error:", err);
   }

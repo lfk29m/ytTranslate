@@ -19,10 +19,12 @@ const { playerReady, loadVideo, getCurrentTime, onPlayerStateChange } =
 onPlayerStateChange((state) => emit("stateChange", state));
 
 // Once player is ready, expose API to parent
+// Also load videoId if it was already set before the player finished initialising
 watch(playerReady, (ready) => {
   if (ready) {
     emit("playerReady");
     emit("playerApi", { getCurrentTime, loadVideo, onPlayerStateChange });
+    if (props.videoId) loadVideo(props.videoId);
   }
 });
 

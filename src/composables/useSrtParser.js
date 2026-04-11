@@ -94,5 +94,15 @@ export function useSrtParser() {
     })
   }
 
-  return { cues, srtFilename, parseSrtFile }
+  /**
+   * Parse raw SRT text directly (used when restoring from cache).
+   * @param {string} rawText
+   * @param {string} filename
+   */
+  function parseSrtRaw(rawText, filename) {
+    cues.value = parseSrtText(rawText)
+    srtFilename.value = filename
+  }
+
+  return { cues, srtFilename, parseSrtFile, parseSrtRaw }
 }
