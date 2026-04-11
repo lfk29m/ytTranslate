@@ -1,5 +1,3 @@
-import { ref, watch } from 'vue'
-
 // YouTube IFrame API player state constants
 const YT_STATE = {
   UNSTARTED: -1,
@@ -13,15 +11,18 @@ const YT_STATE = {
 const POLL_INTERVAL_MS = 250
 
 /**
- * Polls player.getCurrentTime() every 250ms while playing,
- * and returns the currently active SRT cue as a reactive ref.
+ * Polls player.getCurrentTime() every 250ms while playing and writes the
+ * active SRT cue into the caller-supplied `currentCue` ref.
+ *
+ * Accepting the ref from outside avoids the double-ref problem that arises
+ * when this composable is initialised from a regular event handler (not setup()).
  *
  * @param {{ onPlayerStateChange: Function, getCurrentTime: Function }} playerAPI
  * @param {Ref<Array<{start, end, text}>>} cues
- * @returns {{ currentCue: Ref<{text:string}|null> }}
+ * @param {Ref<object|null>} currentCue  – caller-owned ref to write into
+ * @returns {{ dispose: Function }}
  */
-export function useSubtitleSync(playerAPI, cues) {
-  const currentCue = ref(null)
+export function useSubtitleSync(playerAPI, cues, currentCue) {
   let intervalId = null
 
   function findCue(timeSeconds) {
@@ -88,20 +89,15 @@ export function useSubtitleSync(playerAPI, cues) {
     }
   })
 
-  // When a new SRT is loaded mid-playback, refresh immediately
-  watch(cues, () => {
-    if (intervalId !== null) {
-      currentCue.value = findCue(playerAPI.getCurrentTime())
-    } else {
-      clearSubtitle()
-    }
-  })
+  // When a new SRT is loaded mid-playback the polling interval will
+  // naturally pick up the correct cue on its next 250ms tick, so no
+  // explicit watch(cues, ...) is needed — and calling watch() outside
+  // of a component's setup() can cause Vue warnings / untracked effects.
 
-  // Clean up when the composable scope is disposed
-  // (caller is responsible for calling this if not in a component)
   function dispose() {
     stopPolling()
+    currentCue.value = null
   }
 
-  return { currentCue, dispose }
+  return { dispose }
 }

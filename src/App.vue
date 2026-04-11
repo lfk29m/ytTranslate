@@ -10,7 +10,9 @@ import { useSubtitleSync } from "./composables/useSubtitleSync.js";
 // ── State ──────────────────────────────────────────────────────────────────
 const videoId = ref("");
 const playerApiRef = shallowRef(null); // { getCurrentTime, loadVideo, onPlayerStateChange }
-const currentCueRef = ref(null);
+// Single source of truth for the currently active subtitle cue.
+// Lives here so the template can directly track this plain ref.
+const currentCue = ref(null);
 
 const { cues, srtFilename, parseSrtFile } = useSrtParser();
 
@@ -33,8 +35,9 @@ function onPlayerApi(api) {
   // Dispose previous sync if user loaded a new video
   if (syncDispose) syncDispose();
 
-  const { currentCue, dispose } = useSubtitleSync(api, cues);
-  currentCueRef.value = currentCue; // currentCue is a reactive ref itself
+  // Pass currentCue ref in so useSubtitleSync writes into it directly —
+  // no double-ref indirection, template tracks this ref natively.
+  const { dispose } = useSubtitleSync(api, cues, currentCue);
   syncDispose = dispose;
 }
 
@@ -65,7 +68,7 @@ async function onImportSrt(file) {
       <VideoPlayer :video-id="videoId" @player-api="onPlayerApi" />
       <!-- Subtitle display sits below the video on mobile -->
       <div class="subtitle-area">
-        <SubtitleDisplay :cue="currentCueRef?.value ?? null" />
+        <SubtitleDisplay :cue="currentCue" />
       </div>
     </section>
 
