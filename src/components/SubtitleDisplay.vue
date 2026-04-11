@@ -27,8 +27,8 @@ defineProps({
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  padding: 10px 16px;
-  background: rgba(0, 0, 0, 0.75);
+  padding: 8px 16px;
+  background: rgba(0, 0, 0, 0.431);
   border-radius: var(--radius);
   /* pointer-events: none lets taps pass through to the video on iOS */
   pointer-events: none;
@@ -38,7 +38,7 @@ defineProps({
 
 .subtitle-line {
   display: block;
-  font-size: clamp(15px, 4vw, 20px);
+  font-size: 16px;
   font-weight: 500;
   line-height: 1.45;
   color: #fff;

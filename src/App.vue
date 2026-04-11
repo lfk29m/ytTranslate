@@ -123,10 +123,11 @@ async function onImportSrt(file) {
 
     <!-- Video player + subtitle display -->
     <section class="player-section">
-      <VideoPlayer :video-id="videoId" @player-api="onPlayerApi" />
-      <!-- Subtitle display sits below the video on mobile -->
-      <div class="subtitle-area">
-        <SubtitleDisplay :cue="currentCue" />
+      <div class="video-with-subtitles">
+        <VideoPlayer :video-id="videoId" @player-api="onPlayerApi" />
+        <div class="subtitle-overlay">
+          <SubtitleDisplay :cue="currentCue" />
+        </div>
       </div>
     </section>
 
@@ -184,12 +185,21 @@ async function onImportSrt(file) {
   background: #000;
 }
 
-.subtitle-area {
+.video-with-subtitles {
+  position: relative;
+  width: 100%;
+}
+
+.subtitle-overlay {
+  position: absolute;
+  bottom: 80px; /* clear YouTube's control bar */
+  left: 0;
+  right: 0;
   display: flex;
   justify-content: center;
-  padding: 8px 16px;
-  min-height: 52px;
-  background: #000;
+  padding: 0 16px;
+  pointer-events: none;
+  z-index: 10;
 }
 
 .importer-section {
