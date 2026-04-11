@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C ~/Desktop/sideProject/ytTranslate status)",
+      "Bash(pip3 install:*)",
+      "Bash(grep -c \"^[0-9][0-9]*$\" /Users/su/Desktop/sideProject/ytTranslate/test.srt)",
+      "Bash(python3 -c ':*)",
+      "Bash(ls /Users/su/Desktop/sideProject/ytTranslate/*.py /Users/su/Desktop/sideProject/ytTranslate/*.json)"
+    ]
+  }
+}
