@@ -5,7 +5,16 @@
       "Bash(pip3 install:*)",
       "Bash(grep -c \"^[0-9][0-9]*$\" /Users/su/Desktop/sideProject/ytTranslate/test.srt)",
       "Bash(python3 -c ':*)",
-      "Bash(ls /Users/su/Desktop/sideProject/ytTranslate/*.py /Users/su/Desktop/sideProject/ytTranslate/*.json)"
+      "Bash(ls /Users/su/Desktop/sideProject/ytTranslate/*.py /Users/su/Desktop/sideProject/ytTranslate/*.json)",
+      "Bash(grep -r \"anthropic\\\\|claude\\\\|openai\\\\|api\\\\|fetch\" /Users/su/Desktop/sideProject/ytTranslate --include=\"*.js\" --include=\"*.ts\" ! --path \"*/node_modules/*\" ! --path \"*/.git/*\" -l)",
+      "Bash(node scripts/merge.js)",
+      "Bash(node scripts/merge.js source/test.srt)",
+      "Bash(node scripts/split_chunks.js 3)",
+      "Bash(node -e \"const d = require\\('/Users/su/Desktop/sideProject/ytTranslate/target/.work/chunk_1.json'\\); console.log\\(d.length\\);\")",
+      "Bash(node -e \"const data = require\\('/Users/su/Desktop/sideProject/ytTranslate/target/.work/chunk_2.json'\\); console.log\\('Total items:', data.length\\); data.forEach\\(\\(item, i\\) => console.log\\(i + ':', JSON.stringify\\(item.text\\).substring\\(0, 80\\)\\)\\);\")",
+      "Bash(node -e \"const d = require\\('/Users/su/Desktop/sideProject/ytTranslate/target/.work/chunk_1.json'\\); d.forEach\\(\\(item,i\\) => console.log\\(i + ': ' + JSON.stringify\\(item.text\\)\\)\\);\")",
+      "Bash(node -e \"const data = require\\('/Users/su/Desktop/sideProject/ytTranslate/target/.work/chunk_2.json'\\); data.forEach\\(\\(item, i\\) => { if \\(item.text.length > 80\\) console.log\\(i + ': ' + item.text\\); }\\);\")",
+      "Bash(node -e \"const result = require\\('/Users/su/Desktop/sideProject/ytTranslate/target/.work/result_2.json'\\); const source = require\\('/Users/su/Desktop/sideProject/ytTranslate/target/.work/chunk_2.json'\\); console.log\\('source count:', source.length, 'result count:', result.length, 'match:', source.length === result.length\\);\")"
     ]
   }
 }

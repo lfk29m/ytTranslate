@@ -23,25 +23,55 @@ node scripts/merge.js <input.srt>
 
 合併後的句子會儲存到 `target/.work/merged.json`。
 
-### 步驟二 — 翻譯
+### 步驟二 — 切分 chunk
 
-讀取 `target/.work/merged.json`，將每個物件的 `text` 欄位翻譯成自然流暢的繁體中文：
-
-- 保持原意，字幕語氣要口語化、自然
-- 專有名詞（人名、技術詞彙）可保留英文
-- 每次最多處理 50 句，分批翻譯
-
-### 步驟三 — 儲存翻譯結果
-
-將所有翻譯寫入 `target/.work/translations.json`，格式為字串陣列：
-
-```json
-["第一句翻譯", "第二句翻譯", "..."]
+```bash
+node scripts/split_chunks.js 3
 ```
 
-陣列長度**必須**與 `merged.json` 中的物件數量完全一致。
+輸出：`target/.work/chunk_0.json`、`chunk_1.json`、`chunk_2.json`，各約 1/3 句數。
 
-### 步驟四 — 套用翻譯並輸出
+### 步驟三 — 並行翻譯
+
+**在同一則訊息中同時呼叫 3 次 Agent 工具**（不可分開呼叫，必須同時送出），各自負責一個 chunk。
+
+每個 Agent 的任務說明（chunk 編號請對應替換）：
+
+> 請讀取 `target/.work/chunk_N.json`（JSON 陣列，每個物件有 `text` 欄位）。
+> 將每個 `text` 翻譯成自然流暢的繁體中文：
+> - 保持原意，語氣口語化、自然
+> - 專有名詞（人名、技術詞彙）可保留英文
+>
+> 完成後，將所有翻譯**依序**寫入 `target/.work/result_N.json`，格式為純字串陣列：
+> ```json
+> ["第一句翻譯", "第二句翻譯", ...]
+> ```
+> 陣列長度必須與 chunk_N.json 的物件數量完全一致。
+
+等待所有 3 個 Agent 完成。
+
+### 步驟四 — 合併翻譯結果
+
+讀取 `result_0.json`、`result_1.json`、`result_2.json`，按順序合併為一個陣列。
+
+合併前先驗證：
+
+```bash
+node -e "
+const fs = require('fs');
+const m = JSON.parse(fs.readFileSync('target/.work/merged.json','utf-8'));
+const t = [
+  ...JSON.parse(fs.readFileSync('target/.work/result_0.json','utf-8')),
+  ...JSON.parse(fs.readFileSync('target/.work/result_1.json','utf-8')),
+  ...JSON.parse(fs.readFileSync('target/.work/result_2.json','utf-8')),
+];
+console.log('翻譯數量:', t.length, '/ 原文數量:', m.length, '/', t.length === m.length ? '✓ 一致' : '✗ 不一致');
+"
+```
+
+一致後，使用 Write 工具將合併陣列寫入 `target/.work/translations.json`。
+
+### 步驟五 — 套用翻譯並輸出
 
 ```bash
 node scripts/apply_translations.js <input.srt> target/.work/translations.json
@@ -51,27 +81,23 @@ node scripts/apply_translations.js <input.srt> target/.work/translations.json
 
 ## 故障排除
 
-### ❌ 寫入 translations.json 時指令卡死
+### ❌ 寫入 JSON 時指令卡死
 
-**原因**：使用 shell heredoc（`cat << 'EOF'`）寫入大量內容時，shell 的 pipe buffer 會滿，造成指令卡死等待輸出被讀取，形成死鎖。
+**原因**：使用 shell heredoc（`cat << 'EOF'`）寫入大量內容時，shell 的 pipe buffer 會滿，造成死鎖。
 
-**解法**：直接使用 `create_file` / `write_file` 工具寫入檔案，**不要用** terminal 指令來寫大型 JSON。
+**解法**：直接使用 `Write` 工具寫入檔案，**不要用** terminal 指令來寫大型 JSON。
+
+---
+
+### ❌ result_N.json 數量與 chunk_N.json 不一致
+
+重新啟動對應的 Agent 翻譯該 chunk，直到數量一致再合併。
 
 ---
 
 ### ❌ 翻譯數量與原文數量不一致
 
-套用翻譯前，先用以下指令驗證：
-
-```bash
-node -e "
-const t = JSON.parse(require('fs').readFileSync('target/.work/translations.json','utf-8'));
-const m = JSON.parse(require('fs').readFileSync('target/.work/merged.json','utf-8'));
-console.log('翻譯數量:', t.length, '/ 原文數量:', m.length, '/', t.length === m.length ? '✓ 一致' : '✗ 不一致');
-"
-```
-
-若數量不一致，`apply_translations.js` 會對不上的句子保留原文。
+套用翻譯前，先用步驟四的驗證指令確認，若不一致重新翻譯有問題的 chunk。
 
 ---
 
