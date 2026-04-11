@@ -211,4 +211,17 @@ async function onImportSrt(file) {
   height: var(--safe-bottom);
   flex-shrink: 0;
 }
+
+/* ── 手機橫向：影片撐滿全螢幕高度 ──────────────────────────────── */
+@media (orientation: landscape) and (max-height: 600px) {
+  .video-with-subtitles {
+    height: 100dvh;
+  }
+
+  /* 覆蓋 VideoPlayer 內的 padding-top 16:9 技巧 */
+  .video-with-subtitles :deep(.player-aspect) {
+    padding-top: 0;
+    height: 100dvh;
+  }
+}
 </style>
