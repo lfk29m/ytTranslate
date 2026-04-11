@@ -16,14 +16,29 @@ const playerApiRef = shallowRef(null); // { getCurrentTime, loadVideo, onPlayerS
 const currentCue = ref(null);
 
 const { cues, srtFilename, parseSrtFile, parseSrtRaw } = useSrtParser();
-const { saveVideoId, loadVideoId, saveSrt, loadSrt } = useAppCache();
+const {
+  saveVideoId,
+  loadVideoId,
+  saveSrt,
+  loadSrt,
+  savePosition,
+  loadPosition,
+} = useAppCache();
 
 let syncDispose = null;
+// Seconds to seek to on the next PLAYING event (0 = no pending seek)
+let pendingSeekSeconds = 0;
+// Interval ID for periodic position saves during playback
+let positionSaveIntervalId = null;
 
 // ── Restore cache on first load ────────────────────────────────────────────
 onMounted(() => {
   const cachedId = loadVideoId();
-  if (cachedId) videoId.value = cachedId;
+  if (cachedId) {
+    videoId.value = cachedId;
+    // Pre-load the saved position so it's ready when the player fires
+    pendingSeekSeconds = loadPosition(cachedId);
+  }
 
   const cachedSrt = loadSrt();
   if (cachedSrt) parseSrtRaw(cachedSrt.rawText, cachedSrt.filename);
@@ -35,6 +50,8 @@ onMounted(() => {
 function onLoadVideo(id) {
   videoId.value = id;
   saveVideoId(id);
+  // Update pending seek for the newly selected video
+  pendingSeekSeconds = loadPosition(id);
 }
 
 /**
@@ -44,13 +61,39 @@ function onLoadVideo(id) {
 function onPlayerApi(api) {
   playerApiRef.value = api;
 
-  // Dispose previous sync if user loaded a new video
   if (syncDispose) syncDispose();
-
-  // Pass currentCue ref in so useSubtitleSync writes into it directly —
-  // no double-ref indirection, template tracks this ref natively.
   const { dispose } = useSubtitleSync(api, cues, currentCue);
   syncDispose = dispose;
+
+  // ── Position save / restore ────────────────────────────────
+  api.onPlayerStateChange((state) => {
+    if (state === 1 /* PLAYING */) {
+      // Seek to saved position on first play after a video loads
+      if (pendingSeekSeconds > 5) {
+        api.seekTo(pendingSeekSeconds);
+        pendingSeekSeconds = 0;
+      }
+      // Save position every 5 s during playback
+      if (!positionSaveIntervalId) {
+        positionSaveIntervalId = setInterval(() => {
+          const t = api.getCurrentTime();
+          if (t > 0) savePosition(videoId.value, t);
+        }, 5000);
+      }
+    } else if (state === 2 /* PAUSED */) {
+      clearInterval(positionSaveIntervalId);
+      positionSaveIntervalId = null;
+      const t = api.getCurrentTime();
+      if (t > 0) savePosition(videoId.value, t);
+    } else if (state === 0 /* ENDED */) {
+      clearInterval(positionSaveIntervalId);
+      positionSaveIntervalId = null;
+      savePosition(videoId.value, 0); // reset so next open starts from beginning
+    } else {
+      clearInterval(positionSaveIntervalId);
+      positionSaveIntervalId = null;
+    }
+  });
 }
 
 /** Called by SrtImporter when a file is selected */

@@ -12,7 +12,7 @@ const props = defineProps({
 const emit = defineEmits(["playerReady", "stateChange", "playerApi"]);
 
 const playerContainer = ref(null);
-const { playerReady, loadVideo, getCurrentTime, onPlayerStateChange } =
+const { playerReady, loadVideo, getCurrentTime, seekTo, onPlayerStateChange } =
   useYouTubePlayer(playerContainer);
 
 // Bubble state changes to parent
@@ -23,7 +23,12 @@ onPlayerStateChange((state) => emit("stateChange", state));
 watch(playerReady, (ready) => {
   if (ready) {
     emit("playerReady");
-    emit("playerApi", { getCurrentTime, loadVideo, onPlayerStateChange });
+    emit("playerApi", {
+      getCurrentTime,
+      seekTo,
+      loadVideo,
+      onPlayerStateChange,
+    });
     if (props.videoId) loadVideo(props.videoId);
   }
 });

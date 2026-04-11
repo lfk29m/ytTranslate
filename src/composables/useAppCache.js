@@ -8,7 +8,8 @@
 const KEY_VIDEO_ID = 'yt-translate:videoId'
 const KEY_SRT_TEXT = 'yt-translate:srtText'
 const KEY_SRT_NAME = 'yt-translate:srtFilename'
-
+const KEY_POS_ID = 'yt-translate:pos:id'
+const KEY_POS_SEC = 'yt-translate:pos:sec'
 function get(key) {
   try { return localStorage.getItem(key) } catch { return null }
 }
@@ -57,5 +58,30 @@ export function useAppCache() {
     return null
   }
 
-  return { saveVideoId, loadVideoId, saveSrt, loadSrt }
+  // ── Playback position ─────────────────────────────────────────────────
+  /**
+   * Save the current playback position for a specific video.
+   * Only one (videoId, seconds) pair is kept at a time.
+   * @param {string} videoId
+   * @param {number} seconds
+   */
+  function savePosition(videoId, seconds) {
+    if (!videoId || seconds == null) return
+    set(KEY_POS_ID, videoId)
+    set(KEY_POS_SEC, String(seconds))
+  }
+
+  /**
+   * Return saved position (seconds) for a given videoId, or 0 if none.
+   * @param {string} videoId
+   * @returns {number}
+   */
+  function loadPosition(videoId) {
+    if (!videoId) return 0
+    const savedId = get(KEY_POS_ID)
+    if (savedId !== videoId) return 0
+    return parseFloat(get(KEY_POS_SEC) ?? '0') || 0
+  }
+
+  return { saveVideoId, loadVideoId, saveSrt, loadSrt, savePosition, loadPosition }
 }

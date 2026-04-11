@@ -54,6 +54,13 @@ export function useYouTubePlayer(containerRef) {
     }
   }
 
+  function seekTo(seconds) {
+    if (!player || !playerReady.value) return
+    try {
+      player.seekTo(seconds, true)
+    } catch { /* ignore */ }
+  }
+
   onMounted(() => {
     if (window.YT && window.YT.Player) {
       createPlayer()
@@ -85,6 +92,7 @@ export function useYouTubePlayer(containerRef) {
     playerReady,
     loadVideo,
     getCurrentTime,
+    seekTo,
     onPlayerStateChange,
   }
 }
