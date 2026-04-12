@@ -1,4 +1,5 @@
-node_modules
-dist
-target
-source
+node_modules/
+dist/
+target/
+source/
+.gdrive-creds/

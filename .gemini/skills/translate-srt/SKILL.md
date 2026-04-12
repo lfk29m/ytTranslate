@@ -52,6 +52,16 @@ node scripts/apply_translations.js <input.srt> target/.work/translations.json
 ```
 輸出檔案位於 `target/<filename>_zh.srt`。
 
+### 5. 上傳至 Google 雲端硬碟 (選用)
+當翻譯完成且檔案產生後，**主動詢問**使用者是否要將結果上傳至雲端硬碟。
+
+如果使用者同意，請執行以下操作：
+1. 確認 `.gdrive-creds/credentials.json` 已存在（若不存在，請引導使用者至 Google Cloud Console 建立 OAuth 客戶端 ID 並下載）。
+2. 使用腳本執行上傳：
+```bash
+node scripts/upload_to_gdrive.js target/<filename>_zh.srt 1QauwbMba5Ta7MfrvIREAGoWGyCXXOeHf
+```
+
 ## 故障排除
 - **數量不一致**：若某個 `result_N.json` 缺少句子，請針對該 chunk 重新執行子代理翻譯。
 - **寫入失敗**：寫入大型 JSON 時，優先使用 `write_file` 工具而非 shell 重導向，以避免 buffer 溢出。
