@@ -26,16 +26,19 @@ node scripts/split_chunks.js 3
 
 每個 Agent 的任務說明（chunk 編號請對應替換）：
 
-> 請讀取 `target/.work/chunk_N.json`（JSON 陣列，每個物件有 `text` 欄位）。
-> 將每個 `text` 翻譯成自然流暢的繁體中文：
+> 請讀取 `target/.work/chunk_N.json`（純字串陣列，每個元素為一句英文）。
+> 將每句翻譯成自然流暢的繁體中文：
+>
 > - 保持原意，語氣口語化、自然
 > - 專有名詞（人名、技術詞彙）可保留英文
 >
 > 完成後，將所有翻譯**依序**寫入 `target/.work/result_N.json`，格式為純字串陣列：
+>
 > ```json
 > ["第一句翻譯", "第二句翻譯", ...]
 > ```
-> 陣列長度必須與 chunk_N.json 的物件數量完全一致。
+>
+> 陣列長度必須與 chunk_N.json 的元素數量完全一致。
 
 等待所有 3 個 Agent 完成。
 

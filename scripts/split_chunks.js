@@ -20,7 +20,7 @@ const chunkSize = Math.ceil(N / chunkCount)
 let created = 0
 for (let i = 0; i < chunkCount; i++) {
   const start = i * chunkSize
-  const chunk = merged.slice(start, start + chunkSize)
+  const chunk = merged.slice(start, start + chunkSize).map(({ text }) => text)
   if (chunk.length === 0) break
   fs.writeFileSync(`target/.work/chunk_${i}.json`, JSON.stringify(chunk, null, 2), 'utf-8')
   console.log(`chunk_${i}.json：${chunk.length} 句（第 ${start + 1}–${start + chunk.length} 句）`)
