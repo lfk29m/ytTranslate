@@ -9,6 +9,8 @@
  */
 
 const KEY_VIDEO_ID = 'yt-translate:videoId'
+const KEY_HISTORY  = 'yt-translate:history'
+const HISTORY_MAX  = 20
 
 /** Build a video-scoped localStorage key. */
 function videoKey(videoId, suffix) {
@@ -86,5 +88,42 @@ export function useAppCache() {
     return parseFloat(get(videoKey(videoId, 'pos')) ?? '0') || 0
   }
 
-  return { saveVideoId, loadVideoId, saveSrt, loadSrt, savePosition, loadPosition }
+  // ── Watch history ─────────────────────────────────────────────────────
+  function loadHistory() {
+    try {
+      const raw = get(KEY_HISTORY)
+      if (!raw) return []
+      return JSON.parse(raw)
+    } catch { return [] }
+  }
+
+  /** Prepend videoId to history (dedup, keep newest MAX entries). */
+  function addToHistory(videoId, title = '') {
+    if (!videoId) return
+    const list = loadHistory().filter(e => e.id !== videoId)
+    list.unshift({ id: videoId, title, addedAt: Date.now() })
+    if (list.length > HISTORY_MAX) list.length = HISTORY_MAX
+    try { localStorage.setItem(KEY_HISTORY, JSON.stringify(list)) } catch { /* quota */ }
+  }
+
+  /** Update only the title field of an existing history entry. */
+  function updateHistoryTitle(videoId, title) {
+    const list = loadHistory()
+    const entry = list.find(e => e.id === videoId)
+    if (!entry) return
+    entry.title = title
+    try { localStorage.setItem(KEY_HISTORY, JSON.stringify(list)) } catch { /* quota */ }
+  }
+
+  function removeFromHistory(videoId) {
+    const list = loadHistory().filter(e => e.id !== videoId)
+    try { localStorage.setItem(KEY_HISTORY, JSON.stringify(list)) } catch { /* quota */ }
+  }
+
+  function clearHistory() {
+    remove(KEY_HISTORY)
+  }
+
+  return { saveVideoId, loadVideoId, saveSrt, loadSrt, savePosition, loadPosition,
+           loadHistory, addToHistory, updateHistoryTitle, removeFromHistory, clearHistory }
 }

@@ -104,5 +104,10 @@ export function useSrtParser() {
     srtFilename.value = filename
   }
 
-  return { cues, srtFilename, parseSrtFile, parseSrtRaw }
+  function clearSrt() {
+    cues.value = []
+    srtFilename.value = ''
+  }
+
+  return { cues, srtFilename, parseSrtFile, parseSrtRaw, clearSrt }
 }

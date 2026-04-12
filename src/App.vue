@@ -4,6 +4,7 @@ import UrlInput from "./components/UrlInput.vue";
 import VideoPlayer from "./components/VideoPlayer.vue";
 import SrtImporter from "./components/SrtImporter.vue";
 import SubtitleDisplay from "./components/SubtitleDisplay.vue";
+import VideoHistory from "./components/VideoHistory.vue";
 import { useSrtParser } from "./composables/useSrtParser.js";
 import { useSubtitleSync } from "./composables/useSubtitleSync.js";
 import { useAppCache } from "./composables/useAppCache.js";
@@ -15,7 +16,7 @@ const playerApiRef = shallowRef(null); // { getCurrentTime, loadVideo, onPlayerS
 // Lives here so the template can directly track this plain ref.
 const currentCue = ref(null);
 
-const { cues, srtFilename, parseSrtFile, parseSrtRaw } = useSrtParser();
+const { cues, srtFilename, parseSrtRaw, clearSrt } = useSrtParser();
 const {
   saveVideoId,
   loadVideoId,
@@ -23,7 +24,27 @@ const {
   loadSrt,
   savePosition,
   loadPosition,
+  loadHistory,
+  addToHistory,
+  updateHistoryTitle,
+  removeFromHistory,
+  clearHistory,
 } = useAppCache();
+
+async function fetchVideoTitle(id) {
+  try {
+    const res = await fetch(
+      `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${id}&format=json`
+    )
+    if (!res.ok) return null
+    const data = await res.json()
+    return data.title ?? null
+  } catch {
+    return null
+  }
+}
+
+const history = ref([]);
 
 let syncDispose = null;
 // Seconds to seek to on the next PLAYING event (0 = no pending seek)
@@ -33,6 +54,22 @@ let positionSaveIntervalId = null;
 
 // ── Restore cache on first load ────────────────────────────────────────────
 onMounted(() => {
+  history.value = loadHistory();
+
+  // Back-fill titles for history entries that don't have one yet
+  const missing = history.value.filter(e => !e.title)
+  if (missing.length) {
+    Promise.allSettled(
+      missing.map(async (e) => {
+        const title = await fetchVideoTitle(e.id)
+        if (title) {
+          updateHistoryTitle(e.id, title)
+          history.value = loadHistory()
+        }
+      })
+    )
+  }
+
   const cachedId = loadVideoId();
   if (cachedId) {
     videoId.value = cachedId;
@@ -46,12 +83,35 @@ onMounted(() => {
 
 // ── Handlers ───────────────────────────────────────────────────────────────
 
-/** Called by UrlInput when a valid video ID is parsed */
+/** Called by UrlInput (or VideoHistory) when a valid video ID is parsed */
 function onLoadVideo(id) {
   videoId.value = id;
   saveVideoId(id);
+  addToHistory(id);
+  history.value = loadHistory();
+  // Switch SRT to the new video's cached subtitles (or clear if none)
+  clearSrt();
+  const cachedSrt = loadSrt(id);
+  if (cachedSrt) parseSrtRaw(cachedSrt.rawText, cachedSrt.filename);
   // Update pending seek for the newly selected video
   pendingSeekSeconds = loadPosition(id);
+  // Fetch title async and update the history entry
+  fetchVideoTitle(id).then((title) => {
+    if (title) {
+      updateHistoryTitle(id, title);
+      history.value = loadHistory();
+    }
+  });
+}
+
+function onRemoveHistory(id) {
+  removeFromHistory(id);
+  history.value = loadHistory();
+}
+
+function onClearHistory() {
+  clearHistory();
+  history.value = [];
 }
 
 /**
@@ -137,6 +197,16 @@ async function onImportSrt(file) {
         :filename="srtFilename"
         :cue-count="cues.length"
         @import="onImportSrt"
+      />
+    </section>
+
+    <!-- Watch history -->
+    <section class="history-section">
+      <VideoHistory
+        :entries="history"
+        @load="onLoadVideo"
+        @remove="onRemoveHistory"
+        @clear="onClearHistory"
       />
     </section>
 
