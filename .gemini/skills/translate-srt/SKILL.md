@@ -1,67 +1,56 @@
 ---
 name: translate-srt
-description: 將英文 SRT 字幕翻譯為自然流暢的繁體中文。適用於 SRT 檔案翻譯、YouTube 字幕處理等場景。
+description: 將英文 SRT 字幕翻譯為自然流暢的繁體中文，並支援自動化上傳至指定 Google 雲端硬碟資料夾。
 ---
 
-# 英文 SRT 字幕翻譯工作流 (Gemini 專用)
+# 英文 SRT 字幕翻譯與雲端同步工作流
 
-此技能將英文 SRT 檔案透過「合併 -> 切分 -> 並行翻譯 -> 重組」的工作流，確保翻譯的一致性與效率。
+此技能整合了「環境清理」、「翻譯優化」與「雲端備份」，透過專案內建腳本確保翻譯品質與流程的可追蹤性。
 
 ## 執行步驟
 
-### 1. 預處理：合併與切分
-首先將碎裂的字幕區塊合併為完整句子，並切分為 3 個區塊以利並行翻譯：
+### 1. 預處理 (Preprocess)
+
+此步驟會**自動清空**舊的中間檔案，並將字幕合併切分：
 
 ```bash
-node scripts/merge.js <input.srt>
-node scripts/split_chunks.js 3
+node scripts/preprocess.js <source/input.srt> [chunkCount]
 ```
-- `merged.json`: 原始合併資料
-- `chunk_0.json`, `chunk_1.json`, `chunk_2.json`: 待翻譯的英文句子陣列
 
-### 2. 並行翻譯 (核心步驟)
-**必須在同一次工具呼叫中**，啟動 3 個 `generalist` 子代理，分別負責一個 chunk 的翻譯。
+- 預設切分為 3 個 chunk。
+- 檔案存放於 `target/.work/`。
 
-**子代理指令範本：**
-> 讀取 `target/.work/chunk_N.json` (純字串陣列)。
-> 將每句翻譯成自然、口語化的繁體中文：
-> - 專門術語（人名、技術詞）可保留英文。
-> - 確保輸出陣列長度與輸入完全一致。
-> - 將結果寫入 `target/.work/result_N.json`，格式為：`["翻譯1", "翻譯2", ...]`
+### 2. 高效並行翻譯 (Parallel Translation)
 
-### 3. 驗證與合併
-讀取所有 `result_N.json` 並與 `merged.json` 比對數量是否一致：
+啟動多個 `generalist` 子代理，並行翻譯 `target/.work/chunk_N.json`：
+
+- **風格指引**：繁體中文、口語化、保留專業術語英文。
+- **限制**：輸出陣列長度必須與輸入完全一致。
+- **輸出**：將結果寫入 `target/.work/result_N.json`。
+
+### 3. 完成與驗證 (Finalize)
+
+自動收集所有翻譯結果並產出最終 SRT：
 
 ```bash
-node -e "
-const fs = require('fs');
-const m = JSON.parse(fs.readFileSync('target/.work/merged.json','utf-8'));
-const t = [
-  ...JSON.parse(fs.readFileSync('target/.work/result_0.json','utf-8')),
-  ...JSON.parse(fs.readFileSync('target/.work/result_1.json','utf-8')),
-  ...JSON.parse(fs.readFileSync('target/.work/result_2.json','utf-8')),
-];
-console.log('翻譯數量:', t.length, '/ 原文數量:', m.length, '/', t.length === m.length ? '✓ 一致' : '✗ 不一致');
-if (t.length === m.length) fs.writeFileSync('target/.work/translations.json', JSON.stringify(t, null, 2));
-"
+node scripts/finalize.js <source/input.srt>
 ```
 
-### 4. 輸出最終 SRT
-```bash
-node scripts/apply_translations.js <input.srt> target/.work/translations.json
-```
-輸出檔案位於 `target/<filename>_zh.srt`。
+- 自動偵測並合併所有 `result_*.json`。
+- **除錯支援**：中間檔案會保留在 `target/.work/` 供事後檢查。
 
-### 5. 上傳至 Google 雲端硬碟 (選用)
-當翻譯完成且檔案產生後，**主動詢問**使用者是否要將結果上傳至雲端硬碟。
+### 4. 上傳至 Google 雲端硬碟
 
-如果使用者同意，請執行以下操作：
-1. 確認 `.gdrive-creds/credentials.json` 已存在（若不存在，請引導使用者至 Google Cloud Console 建立 OAuth 客戶端 ID 並下載）。
-2. 使用腳本執行上傳：
+翻譯完成後，執行上傳：
+
 ```bash
 node scripts/upload_to_gdrive.js target/<filename>_zh.srt 1QauwbMba5Ta7MfrvIREAGoWGyCXXOeHf
 ```
 
+_註：腳本會自動處理 Token 刷新。_
+
 ## 故障排除
-- **數量不一致**：若某個 `result_N.json` 缺少句子，請針對該 chunk 重新執行子代理翻譯。
-- **寫入失敗**：寫入大型 JSON 時，優先使用 `write_file` 工具而非 shell 重導向，以避免 buffer 溢出。
+
+- **數量不一致**：`finalize.js` 會報錯。請檢查 `target/.work/result_N.json` 哪一塊數量出錯，並針對該 chunk 重新執行翻譯。
+- **寫入失敗**：寫入大型 JSON 時，優先使用 `write_file` 工具而非 shell 重導向，以避免內容截斷。
+- **認證過期**：若發生 `Login Required`，腳本會嘗試自動刷新；若仍失敗，請檢查 `.gdrive-creds/token.json` 是否包含 `refresh_token`。
