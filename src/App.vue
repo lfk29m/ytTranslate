@@ -40,7 +40,7 @@ onMounted(() => {
     pendingSeekSeconds = loadPosition(cachedId);
   }
 
-  const cachedSrt = loadSrt();
+  const cachedSrt = loadSrt(cachedId);
   if (cachedSrt) parseSrtRaw(cachedSrt.rawText, cachedSrt.filename);
 });
 
@@ -102,7 +102,7 @@ async function onImportSrt(file) {
     // Read raw text first so we can both parse and cache it
     const rawText = await file.text();
     parseSrtRaw(rawText, file.name);
-    saveSrt(file.name, rawText);
+    saveSrt(videoId.value, file.name, rawText);
   } catch (err) {
     console.error("[App] SRT parse error:", err);
   }

@@ -3,13 +3,18 @@
  * All operations are wrapped in try/catch to guard against:
  *  - Private browsing mode where localStorage is blocked
  *  - QuotaExceededError when storage is full (SRT files are usually small)
+ *
+ * SRT and playback-position keys are scoped to the video ID so that
+ * switching between videos never overwrites another video's cached data.
  */
 
 const KEY_VIDEO_ID = 'yt-translate:videoId'
-const KEY_SRT_TEXT = 'yt-translate:srtText'
-const KEY_SRT_NAME = 'yt-translate:srtFilename'
-const KEY_POS_ID = 'yt-translate:pos:id'
-const KEY_POS_SEC = 'yt-translate:pos:sec'
+
+/** Build a video-scoped localStorage key. */
+function videoKey(videoId, suffix) {
+  return `yt-translate:${videoId}:${suffix}`
+}
+
 function get(key) {
   try { return localStorage.getItem(key) } catch { return null }
 }
@@ -33,54 +38,52 @@ export function useAppCache() {
     return get(KEY_VIDEO_ID) ?? ''
   }
 
-  // ── SRT ───────────────────────────────────────────────────────────────
+  // ── SRT (scoped per video) ────────────────────────────────────────────
   /**
+   * @param {string} videoId
    * @param {string} filename
    * @param {string} rawText  — full SRT file content as a string
    */
-  function saveSrt(filename, rawText) {
+  function saveSrt(videoId, filename, rawText) {
+    if (!videoId) return
     if (filename && rawText) {
-      set(KEY_SRT_NAME, filename)
-      set(KEY_SRT_TEXT, rawText)
+      set(videoKey(videoId, 'srtFilename'), filename)
+      set(videoKey(videoId, 'srtText'), rawText)
     } else {
-      remove(KEY_SRT_NAME)
-      remove(KEY_SRT_TEXT)
+      remove(videoKey(videoId, 'srtFilename'))
+      remove(videoKey(videoId, 'srtText'))
     }
   }
 
   /**
+   * @param {string} videoId
    * @returns {{ filename: string, rawText: string } | null}
    */
-  function loadSrt() {
-    const filename = get(KEY_SRT_NAME)
-    const rawText = get(KEY_SRT_TEXT)
+  function loadSrt(videoId) {
+    if (!videoId) return null
+    const filename = get(videoKey(videoId, 'srtFilename'))
+    const rawText = get(videoKey(videoId, 'srtText'))
     if (filename && rawText) return { filename, rawText }
     return null
   }
 
-  // ── Playback position ─────────────────────────────────────────────────
+  // ── Playback position (scoped per video) ──────────────────────────────
   /**
-   * Save the current playback position for a specific video.
-   * Only one (videoId, seconds) pair is kept at a time.
    * @param {string} videoId
    * @param {number} seconds
    */
   function savePosition(videoId, seconds) {
     if (!videoId || seconds == null) return
-    set(KEY_POS_ID, videoId)
-    set(KEY_POS_SEC, String(seconds))
+    set(videoKey(videoId, 'pos'), String(seconds))
   }
 
   /**
-   * Return saved position (seconds) for a given videoId, or 0 if none.
    * @param {string} videoId
    * @returns {number}
    */
   function loadPosition(videoId) {
     if (!videoId) return 0
-    const savedId = get(KEY_POS_ID)
-    if (savedId !== videoId) return 0
-    return parseFloat(get(KEY_POS_SEC) ?? '0') || 0
+    return parseFloat(get(videoKey(videoId, 'pos')) ?? '0') || 0
   }
 
   return { saveVideoId, loadVideoId, saveSrt, loadSrt, savePosition, loadPosition }
