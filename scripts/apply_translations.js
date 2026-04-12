@@ -36,21 +36,44 @@ function msToTs(ms) {
 
 // ── 中文按標點切塊 ────────────────────────────────────────────────────────────
 
+const LOOKAHEAD = 20   // 往前看最多幾個字元等標點
+const ABS_MAX   = 60   // 絕對上限，超過才強制截斷
+
 export function splitZh(text) {
   const chunks = []
   let buf = ''
 
-  for (const ch of text) {
+  for (let idx = 0; idx < text.length; idx++) {
+    const ch = text[idx]
     buf += ch
+
     if (buf.length >= MAX_ZH && PUNCT.has(ch)) {
+      // 自然標點切行
       chunks.push(buf.trim()); buf = ''
-    } else if (buf.length >= HARD_MAX) {
+    } else if (buf.length >= HARD_MAX && buf.length < ABS_MAX) {
+      // 往前看是否有標點快到了，有就繼續等
+      let nearPunct = false
+      for (let j = idx + 1; j < Math.min(idx + 1 + LOOKAHEAD, text.length); j++) {
+        if (PUNCT.has(text[j])) { nearPunct = true; break }
+      }
+      if (nearPunct) continue   // 等到標點再切
+
+      // 沒有標點，找最後一個空格避免切斷英文單字
       let lp = -1
       for (let i = buf.length - 1; i >= MAX_ZH / 2; i--) {
         if (PUNCT.has(buf[i])) { lp = i; break }
       }
       if (lp > 0) { chunks.push(buf.slice(0, lp + 1).trim()); buf = buf.slice(lp + 1) }
-      else         { chunks.push(buf.trim()); buf = '' }
+      else {
+        const sp = buf.lastIndexOf(' ')
+        if (sp > 0) { chunks.push(buf.slice(0, sp).trim()); buf = buf.slice(sp + 1) }
+        else        { chunks.push(buf.trim()); buf = '' }
+      }
+    } else if (buf.length >= ABS_MAX) {
+      // 超過絕對上限，強制在空格切
+      const sp = buf.lastIndexOf(' ')
+      if (sp > 0) { chunks.push(buf.slice(0, sp).trim()); buf = buf.slice(sp + 1) }
+      else        { chunks.push(buf.trim()); buf = '' }
     }
   }
 
@@ -117,7 +140,7 @@ if (process.argv[1]?.endsWith('apply_translations.js')) {
   const out = []
   let counter = 1
   merged.forEach((unit, i) => {
-    const zh     = translations[i] ?? unit.text
+    const zh     = translations[i] || unit.text
     const blocks = applyTranslation(unit, zh, counter)
     out.push(...blocks)
     counter += blocks.length
