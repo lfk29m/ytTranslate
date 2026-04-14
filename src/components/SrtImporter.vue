@@ -26,8 +26,11 @@ function handleFileChange(event) {
   const file = event.target.files?.[0];
   if (!file) return;
 
-  if (!file.name.toLowerCase().endsWith(".srt")) {
-    errorMsg.value = "請選擇 .srt 格式的字幕檔案";
+  if (
+    !file.name.toLowerCase().endsWith(".srt") &&
+    !file.name.toLowerCase().endsWith(".txt")
+  ) {
+    errorMsg.value = "請選擇 .srt 或 .txt 格式的字幕檔案";
     // Reset so the same file can be re-selected after correction
     event.target.value = "";
     return;
@@ -46,7 +49,7 @@ function handleFileChange(event) {
     <input
       ref="fileInput"
       type="file"
-      accept=".srt"
+      accept=".srt,.txt"
       class="hidden-input"
       @change="handleFileChange"
     />
@@ -62,7 +65,7 @@ function handleFileChange(event) {
             stroke-linejoin="round"
           />
         </svg>
-        匯入字幕 (.srt)
+        匯入字幕 (.srt / .txt)
       </button>
 
       <span v-if="filename" class="file-info">
